@@ -1,5 +1,3 @@
-import LoginBtn from '@/components/login-btn';
-import { Button } from '@mantine/core';
 import { IconBriefcase } from '@tabler/icons-react';
 import { Roboto_Mono } from 'next/font/google';
 import Link from 'next/link';

@@ -3,9 +3,11 @@
 import { getServerSession } from 'next-auth';
 import { authOptions } from './auth';
 import { db } from './db';
-import { users } from './schema';
-import { eq } from 'drizzle-orm';
+import { users, usersToSkills } from './schema';
+import { and, eq } from 'drizzle-orm';
 import { z } from 'zod';
+import { revalidatePath } from 'next/cache';
+import { NewUserToSkill } from './types';
 
 const UpdateUsersSchema = z.object({
   jobTitle: z.string().min(3),
@@ -52,4 +54,125 @@ export async function updateUser(
   return {
     success: 'Update user success',
   };
+}
+
+const UpdateSkillRatingSchema = z.object({
+  skillId: z.string().uuid(),
+  rating: z.number().min(1).max(5),
+});
+
+interface UpdateSkillRatingState {
+  errors?: { skillId?: string[]; rating?: string[] };
+  message?: string;
+  success?: string;
+}
+
+export async function updateSkillRating(
+  prevState: UpdateSkillRatingState,
+  formData: FormData
+): Promise<UpdateSkillRatingState> {
+  const session = await getServerSession(authOptions);
+
+  const validatedFields = UpdateSkillRatingSchema.safeParse({
+    skillId: formData.get('skillId'),
+    rating: parseInt(formData.get('rating')?.toString()!),
+  });
+
+  if (!validatedFields.success) {
+    return {
+      errors: validatedFields.error.flatten().fieldErrors,
+      message: 'Update skill error',
+    };
+  }
+
+  await db
+    .update(usersToSkills)
+    .set({ rating: validatedFields.data.rating })
+    .where(
+      and(
+        eq(usersToSkills.skillId, validatedFields.data.skillId),
+        eq(usersToSkills.userId, session?.user.id)
+      )
+    );
+
+  revalidatePath('/dashboard/profile/skills');
+
+  return {
+    success: 'Update skill success',
+  };
+}
+
+const AddUsersToSkillsSchema = z.object({
+  skillId: z.string().uuid(),
+  rating: z.number().min(1).max(5),
+});
+
+export interface AddUsersToSkillsState {
+  errors?: {
+    skillId?: string[];
+    rating?: string[];
+  };
+  message?: string;
+  success?: string;
+}
+
+export async function addUsersToSkills(
+  prevState: AddUsersToSkillsState,
+  formData: FormData
+): Promise<AddUsersToSkillsState> {
+  const session = await getServerSession(authOptions);
+
+  const validatedFields = UpdateSkillRatingSchema.safeParse({
+    skillId: formData.get('skillId'),
+    rating: parseInt(formData.get('rating')?.toString()!),
+  });
+
+  if (!validatedFields.success) {
+    return {
+      errors: validatedFields.error.flatten().fieldErrors,
+      message: 'Add skill error',
+    };
+  }
+
+  const userToSkill = await db.query.usersToSkills.findFirst({
+    where: and(
+      eq(usersToSkills.skillId, validatedFields.data.skillId),
+      eq(usersToSkills.userId, session?.user.id)
+    ),
+  });
+
+  if (userToSkill) {
+    return {
+      message: 'Rating for this skill already exists',
+    };
+  }
+
+  const newUserToSkill: NewUserToSkill = {
+    skillId: validatedFields.data.skillId,
+    userId: session?.user.id,
+    rating: validatedFields.data.rating,
+  };
+
+  await db.insert(usersToSkills).values(newUserToSkill);
+
+  revalidatePath('/dashboard/profile/skills');
+
+  return {
+    success: 'Add skill success',
+  };
+}
+
+export async function deleteUserToSkill(skillId: string) {
+  const session = await getServerSession(authOptions);
+
+  await db
+    .delete(usersToSkills)
+    .where(
+      and(
+        eq(usersToSkills.skillId, skillId),
+        eq(usersToSkills.userId, session?.user.id)
+      )
+    );
+
+  revalidatePath('/dashboard/profile/skills');
 }
