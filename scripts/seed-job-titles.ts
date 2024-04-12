@@ -21,9 +21,9 @@ export default async function main() {
       .set({ jobTitle: JOB_TITLES[randomIdx] })
       .where(eq(users.id, user.id));
   }
-  pool.end();
 }
 
 if (require.main === module) {
   main();
+  pool.end();
 }

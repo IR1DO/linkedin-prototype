@@ -20,10 +20,9 @@ export default async function main() {
     };
     await db.insert(skills).values(newSkill).onConflictDoNothing();
   }
-
-  pool.end();
 }
 
 if (require.main === module) {
   main();
+  pool.end();
 }
