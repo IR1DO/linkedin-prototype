@@ -1,8 +1,8 @@
 import UserCard from '@/components/user-card';
 import { db } from '@/lib/db';
 import { getKNearestNeighborsByUserId } from '@/lib/knn';
-import { users } from '@/lib/schema';
-import { Avatar, NumberFormatter } from '@mantine/core';
+import { users, usersToSkills } from '@/lib/schema';
+import { Avatar, NumberFormatter, Rating } from '@mantine/core';
 import { eq } from 'drizzle-orm';
 import { notFound } from 'next/navigation';
 
@@ -10,6 +10,13 @@ async function getUserById(id: string) {
   return await db.query.users.findFirst({
     where: eq(users.id, id),
     with: { usersToUsersSkills: { with: { skill: true } } },
+  });
+}
+
+async function getUsersToSkillsByUserId(userId: string) {
+  return await db.query.usersToSkills.findMany({
+    with: { skill: true },
+    where: eq(usersToSkills.userId, userId),
   });
 }
 
@@ -24,6 +31,7 @@ export default async function Page({ params }: { params: { id: string } }) {
 
   const { id } = params;
   const user = await getUserById(id);
+  const usersToSkills = await getUsersToSkillsByUserId(id);
   const similarPeople = await getSimilarPeople(id);
 
   if (!user) {
@@ -42,6 +50,19 @@ export default async function Page({ params }: { params: { id: string } }) {
           className='prose dark:prose-invert'
           dangerouslySetInnerHTML={{ __html: user.bio ?? '' }}
         />
+
+        <h2 className='font-bold text-xl my-6'>Skills</h2>
+        <div className='flex flex-col gap-2'>
+          {usersToSkills.map((usersToSkill) => (
+            <div
+              key={usersToSkill.userId}
+              className='flex flex-row justify-between'
+            >
+              <div>{usersToSkill.skill.name}</div>
+              <Rating value={usersToSkill.rating || 0} readOnly />
+            </div>
+          ))}
+        </div>
 
         <h2 className='font-bold text-xl my-6'>Similar People</h2>
         <div className='flex flex-col gap-2'>
