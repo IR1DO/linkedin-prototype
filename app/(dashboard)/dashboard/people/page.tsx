@@ -6,7 +6,7 @@ import { User } from '@/lib/types';
 import { count } from 'drizzle-orm';
 import Link from 'next/link';
 
-const PER_PAGE = 20;
+const PER_PAGE = 18;
 
 async function getUsers(page: number) {
   const countRes = await db.select({ value: count() }).from(users);
